@@ -70,16 +70,22 @@ def main():
             if event.type == pygame.QUIT: 
                 run = False
             
-            if pygame.mouse.get_pressed()[0]: # Left Click
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos = pygame.mouse.get_pos()
                 r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
-                if not start: start = grid[r][c]; start.color = RED
-                elif not end: end = grid[r][c]; end.color = RED
-                else: grid[r][c].color = BLACK
-            
+                node = grid[r][c]
+                if not start and node != end:
+                    start = node
+                    start.color = RED
+                elif not end and node != start:
+                    end = node
+                    end.color = RED
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and start and end:
                     bfs(win, grid, start, end)
+                if event.key == pygame.K_r:
+                    grid = make_grid()
+                    start, end = None, None
     pygame.quit()
 
 if __name__ == "__main__":
