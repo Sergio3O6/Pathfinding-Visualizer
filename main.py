@@ -1,3 +1,9 @@
+'''
+To run program. Start the program. Click your first starting point and choose your second point.
+Once points are selected press space and watch.
+'''
+
+
 import pygame
 import collections
 
@@ -25,6 +31,31 @@ def draw(win, grid): #Draws on the grid to show progression of algorithm
         for node in row: node.draw(win)
     pygame.display.update()
 
+def bfs(win, grid, start, end):
+    queue = collections.deque([start])
+    visited = {start}
+    parent = {start: None}
+    
+    while queue:
+        current = queue.popleft()
+        if current == end:
+            #Reconstruct path
+            while current:
+                current.color = BLUE
+                current = parent[current]
+                draw(win, grid)
+            return True
+            
+        for dr, dc in [(0,1), (1,0), (0,-1), (-1,0)]:
+            r, c = current.row + dr, current.col + dc
+            if 0 <= r < ROWS and 0 <= c < ROWS and grid[r][c].color != BLACK and grid[r][c] not in visited:
+                visited.add(grid[r][c])
+                parent[grid[r][c]] = current
+                queue.append(grid[r][c])
+                grid[r][c].color = GREEN #Visualize exploration
+                draw(win, grid)
+    return False
+
 def main():
     win = pygame.display.set_mode((WIDTH, HEIGHT))
     grid = make_grid()
@@ -41,6 +72,9 @@ def main():
                 if not start: start = grid[r][c]; start.color = RED
                 elif not end: end = grid[r][c]; end.color = RED
                 else: grid[r][c].color = BLACK
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and start and end:
+                    bfs(win, grid, start, end)
     pygame.quit()
 
 if __name__ == "__main__":
