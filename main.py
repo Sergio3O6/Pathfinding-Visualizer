@@ -61,17 +61,22 @@ def main():
     grid = make_grid()
     start, end = None, None
     run = True
+    clock = pygame.time.Clock()
     
     while run:
+        clock.tick(60)
         draw(win, grid)
         for event in pygame.event.get():
-            if event.type == pygame.QUIT: run = False
+            if event.type == pygame.QUIT: 
+                run = False
+            
             if pygame.mouse.get_pressed()[0]: # Left Click
                 pos = pygame.mouse.get_pos()
                 r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
                 if not start: start = grid[r][c]; start.color = RED
                 elif not end: end = grid[r][c]; end.color = RED
                 else: grid[r][c].color = BLACK
+            
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and start and end:
                     bfs(win, grid, start, end)
