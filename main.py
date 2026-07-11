@@ -86,6 +86,13 @@ def main():
                 if event.key == pygame.K_r:
                     grid = make_grid()
                     start, end = None, None
+
+            if start and end and pygame.mouse.get_pressed()[0]: #For drawing walls
+                pos = pygame.mouse.get_pos()
+                r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
+                node = grid[r][c]
+                if node != start and node != end:
+                    node.color = BLACK
     pygame.quit()
 
 if __name__ == "__main__":
