@@ -70,7 +70,7 @@ def main():
             if event.type == pygame.QUIT: 
                 run = False
             
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: #Seperates first and second clicks
                 pos = pygame.mouse.get_pos()
                 r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
                 node = grid[r][c]
@@ -79,11 +79,11 @@ def main():
                     start.color = RED
                 elif not end and node != start:
                     end = node
-                    end.color = RED
+                    end.color = BLUE
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and start and end:
                     bfs(win, grid, start, end)
-                if event.key == pygame.K_r:
+                if event.key == pygame.K_r: #Pressing r resets the board
                     grid = make_grid()
                     start, end = None, None
 
