@@ -18,6 +18,33 @@ class Node:
         self.row, self.col = row, col
         self.color = WHITE
         self.neighbors = []
+    
+    def is_barrier(self):
+        return self.color == BLACK
+
+    def is_start(self):
+        return self.color == RED
+
+    def is_end(self):
+        return self.color == BLUE
+
+    def make_start(self):
+        self.color = RED
+
+    def make_end(self):
+        self.color = BLUE
+
+    def make_barrier(self):
+        self.color = BLACK
+
+    def make_open(self):
+        self.color = GREEN
+
+    def make_path(self):
+        self.color = BLUE
+
+    def reset(self):
+        self.color = WHITE
 
     def draw(self, win ): #Creates window
         pygame.draw.rect(win, self.color, (self.col * GRID_SIZE, self.row * GRID_SIZE, GRID_SIZE, GRID_SIZE))
@@ -76,10 +103,10 @@ def main():
                 node = grid[r][c]
                 if not start and node != end:
                     start = node
-                    start.color = RED
+                    start.make_start()
                 elif not end and node != start:
                     end = node
-                    end.color = BLUE
+                    end.make_end()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and start and end:
                     bfs(win, grid, start, end)
@@ -92,7 +119,7 @@ def main():
                 r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
                 node = grid[r][c]
                 if node != start and node != end:
-                    node.color = BLACK
+                    node.make_barrier()
     pygame.quit()
 
 if __name__ == "__main__":
