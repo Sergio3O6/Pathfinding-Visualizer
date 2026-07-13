@@ -73,15 +73,27 @@ def bfs(win, grid, start, end):
                 draw(win, grid)
             return True
             
-        for dr, dc in [(0,1), (1,0), (0,-1), (-1,0)]:
-            r, c = current.row + dr, current.col + dc
-            if 0 <= r < ROWS and 0 <= c < ROWS and grid[r][c].color != BLACK and grid[r][c] not in visited:
-                visited.add(grid[r][c])
-                parent[grid[r][c]] = current
-                queue.append(grid[r][c])
-                grid[r][c].color = GREEN #Visualize exploration
+        for neighbor in current.neighbors:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                parent[neighbor] = current
+                queue.append(neighbor)
+                neighbor.make_open() #Makes green
                 draw(win, grid)
     return False
+
+def update_neighbors(node, grid):
+    node.neighbors = []
+    r, c = node.row, node.col
+    for dr, dc in [(0, 1), (1, 0), (0, -1), (-1, 0)]: #Checks all 4 directions
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < ROWS and 0 <= nc < ROWS and not grid[nr][nc].is_barrier():
+            node.neighbors.append(grid[nr][nc]) #Only adds if it's on the board and not a wall
+
+def refresh_all_neighbors(grid):
+    for row in grid:
+        for node in row:
+            update_neighbors(node, grid)
 
 def main():
     win = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -109,6 +121,7 @@ def main():
                     end.make_end()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and start and end:
+                    refresh_all_neighbors(grid)
                     bfs(win, grid, start, end)
                 if event.key == pygame.K_r: #Pressing r resets the board
                     grid = make_grid()
