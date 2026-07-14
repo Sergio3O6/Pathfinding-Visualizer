@@ -14,11 +14,11 @@ GRID_SIZE = WIDTH // ROWS
 WHITE, BLACK, RED, GREEN, BLUE, GREY = (255, 255, 255), (0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255), (200, 200, 200) #Sets color with RGB
 
 class Node:
-    def __init__(self, row, col):
-        self.row, self.col = row, col
+    def __init__(self, row, col) -> None:
+        self.row = row
+        self.col = col
         self.color = WHITE
         self.neighbors = []
-    
     def is_barrier(self):
         return self.color == BLACK
 
@@ -50,90 +50,112 @@ class Node:
         pygame.draw.rect(win, self.color, (self.col * GRID_SIZE, self.row * GRID_SIZE, GRID_SIZE, GRID_SIZE))
         pygame.draw.rect(win, GREY, (self.col * GRID_SIZE, self.row * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
-def make_grid(): #Creates grid
-    return [[Node(r, c) for c in range(ROWS)] for r in range(ROWS)] 
+    def update_neighbors(self, grid):
+        self.neighbors = []
+        r, c = self.row, self.col
+        for dr, dc in [(0, 1), (1, 0), (0, -1), (-1, 0)]: #Checks all 4 directions
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < ROWS and 0 <= nc < ROWS and not grid[nr][nc].is_barrier():
+                self.neighbors.append(grid[nr][nc]) #Only adds if it's on the board and not a wall
 
-def draw(win, grid): #Draws on the grid to show progression of algorithm
-    for row in grid:
-        for node in row: node.draw(win)
-    pygame.display.update()
 
-def bfs(win, grid, start, end):
-    queue = collections.deque([start])
-    visited = {start}
-    parent = {start: None}
-    
-    while queue:
-        current = queue.popleft()
-        if current == end:
-            #Reconstruct path
-            while current:
-                current.color = BLUE
-                current = parent[current]
-                draw(win, grid)
-            return True
-            
-        for neighbor in current.neighbors:
-            if neighbor not in visited:
-                visited.add(neighbor)
-                parent[neighbor] = current
-                queue.append(neighbor)
-                neighbor.make_open() #Makes green
-                draw(win, grid)
-    return False
+class Pathfinding:
+    def __init__(self):
+        self.win = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.grid = self.make_grid()
+        self.start: Node | None = None
+        self.end: Node | None = None
+        self.running = True
+        self.clock = pygame.time.Clock()
 
-def update_neighbors(node, grid):
-    node.neighbors = []
-    r, c = node.row, node.col
-    for dr, dc in [(0, 1), (1, 0), (0, -1), (-1, 0)]: #Checks all 4 directions
-        nr, nc = r + dr, c + dc
-        if 0 <= nr < ROWS and 0 <= nc < ROWS and not grid[nr][nc].is_barrier():
-            node.neighbors.append(grid[nr][nc]) #Only adds if it's on the board and not a wall
+    def make_grid(self): #Creates grid
+        return [[Node(r, c) for c in range(ROWS)] for r in range(ROWS)] 
 
-def refresh_all_neighbors(grid):
-    for row in grid:
-        for node in row:
-            update_neighbors(node, grid)
+    def draw(self): #Draws on the grid to show progression of algorithm
+        for row in self.grid:
+            for node in row:
+                node.draw(self.win)
+        pygame.display.update()
 
-def main():
-    win = pygame.display.set_mode((WIDTH, HEIGHT))
-    grid = make_grid()
-    start, end = None, None
-    run = True
-    clock = pygame.time.Clock()
-    
-    while run:
-        clock.tick(60)
-        draw(win, grid)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT: 
-                run = False
-            
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: #Seperates first and second clicks
-                pos = pygame.mouse.get_pos()
-                r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
-                node = grid[r][c]
-                if not start and node != end:
-                    start = node
-                    start.make_start()
-                elif not end and node != start:
-                    end = node
-                    end.make_end()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and start and end:
-                    refresh_all_neighbors(grid)
-                    bfs(win, grid, start, end)
-                if event.key == pygame.K_r: #Pressing r resets the board
-                    grid = make_grid()
-                    start, end = None, None
+    def reset(self):
+        self.grid = self.make_grid()
+        self.start = None
+        self.end = None
 
-            if start and end and pygame.mouse.get_pressed()[0]: #For drawing walls
-                pos = pygame.mouse.get_pos()
-                r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
-                node = grid[r][c]
-                if node != start and node != end:
-                    node.make_barrier()
-    pygame.quit()
+    def bfs(self):
+        if self.start is None or self.end is None:
+            return False
+        queue = collections.deque([self.start])
+        visited = {self.start}
+        parent: dict[Node, Node | None] = {self.start: None}
+        
+        while queue:
+            current = queue.popleft()
+            if current == self.end:
+                #Reconstruct path
+                while current:
+                    current.make_path()
+                    current = parent.get(current)
+                    if current:
+                        self.draw()
+                self.start.make_start()
+                return True
+                
+            for neighbor in current.neighbors:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    parent[neighbor] = current
+                    queue.append(neighbor)
+
+                    if neighbor != self.end:
+                        neighbor.make_open()
+                    self.draw()
+        return False
+
+    def refresh_all_neighbors(self):
+        for row in self.grid:
+            for node in row:
+                node.update_neighbors(self.grid)
+
+    def run_algorithm(self):
+        self.refresh_all_neighbors()
+        self.bfs()
+
+    def handle_event(self, event):
+        if event.type == pygame.QUIT: 
+            self.running = False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: #Seperates first and second clicks
+            pos = pygame.mouse.get_pos()
+            r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
+            node = self.grid[r][c]
+            if not self.start and node != self.end:
+                self.start = node
+                self.start.make_start()
+            elif not self.end and node != self.start:
+                self.end = node
+                self.end.make_end()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and self.start and self.end:
+                self.run_algorithm()
+            if event.key == pygame.K_r: #Pressing r resets the board
+               self.reset()
+
+        if self.start and self.end and pygame.mouse.get_pressed()[0]: #For drawing walls
+            pos = pygame.mouse.get_pos()
+            r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
+            node = self.grid[r][c]
+            if node != self.start and node != self.end:
+                node.make_barrier()
+
+    def run(self):
+        while self.running:
+            self.clock.tick(60)
+            self.draw()
+            for event in pygame.event.get():
+                self.handle_event(event)
+        pygame.quit()
 
 if __name__ == "__main__":
-    main()
+    app = Pathfinding()
+    app.run()
