@@ -74,6 +74,7 @@ class Pathfinding:
         self.running = True
         self.clock = pygame.time.Clock()
         self.algorithm = 'bfs'
+        self._last_run_stats = {'nodes_visited': 0, 'path_length': 0}
 
     def make_grid(self): #Creates grid
         return [[Node(r, c) for c in range(ROWS)] for r in range(ROWS)] 
@@ -149,6 +150,7 @@ class Pathfinding:
                     if current:
                         self.draw()
                 self.start.make_start()
+                self._last_run_stats = {'nodes_visited': len(visited), 'path_length': path_length}
                 return True
 
             for neighbor in current.neighbors:
@@ -194,6 +196,7 @@ class Pathfinding:
                     if current:
                         self.draw()
                 self.start.make_start()
+                self._last_run_stats = {'nodes_visited': len(visited), 'path_length': path_length}
                 return True
 
             for neighbor in current.neighbors:
@@ -216,35 +219,42 @@ class Pathfinding:
                 node.update_neighbors(self.grid)
 
     def generate_maze(self):
-        # Start fully walled — every node is a barrier until Prim's carves it out
+        # 1. Clear start and end points
+        self.start = None
+        self.end = None
+
+        # 2. Fill the entire grid with walls first
         for row in self.grid:
             for node in row:
                 node.make_barrier()
 
-        start_r, start_c = random.randrange(ROWS), random.randrange(ROWS)
+        # 3. Choose a random EVEN-coordinate starting point
+        start_r = random.randrange(0, ROWS, 2)
+        start_c = random.randrange(0, ROWS, 2)
         origin = self.grid[start_r][start_c]
-        origin.reset()   # "reset" == open/white, carved into the maze
+        origin.reset()
 
-        # Frontier = open cells adjacent to the maze that are still barriers themselves
-        frontier = []
-        self._add_frontier(origin, frontier)
+        stack = [origin]
 
-        while frontier:
-            cell = random.choice(frontier)
-            frontier.remove(cell)
-            if not cell.is_barrier():
-                continue   # already carved by a different frontier path, skip
+        while stack:
+            current = stack[-1]
+            r, c = current.row, current.col
+            neighbors = []
+            
+            for dr, dc in [(0, 2), (2, 0), (0, -2), (-2, 0)]:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < ROWS and 0 <= nc < ROWS and self.grid[nr][nc].is_barrier():
+                    neighbors.append((self.grid[nr][nc], self.grid[r + dr//2][c + dc//2]))
 
-            # Connect this frontier cell back to a random already-open neighbor
-            open_neighbors = [n for n in self._raw_neighbors(cell) if not n.is_barrier()]
-            if open_neighbors:
-                cell.reset()
-                self._add_frontier(cell, frontier)
+            if neighbors:
+                target, wall = random.choice(neighbors)
+                wall.reset()
+                target.reset()  
+                stack.append(target)
+            else:
+                stack.pop() 
 
-            self.draw()   # optional — lets you watch the maze generate live
-
-        self.start = None
-        self.end = None
+        self.draw()
 
     def _raw_neighbors(self, node: Node) -> list[Node]:
         # Unlike update_neighbors(), this ignores barrier status — maze
@@ -293,8 +303,7 @@ class Pathfinding:
             s = self.stats
             status = "found" if s['found'] else "no path"
             text = (f"{s['algorithm'].upper()}  |  {status}  |  "
-                    f"{s['time_ms']}ms  |  visited: {s['nodes_visited']}  |  path: {s['path_length']}"
-                    f"{self.algorithm.upper()}")
+                    f"{s['time_ms']}ms  |  visited: {s['nodes_visited']}  |  path: {s['path_length']}")
 
         rendered = self.font.render(text, True, BLACK)
         self.win.blit(rendered, (10, HEIGHT + 18))
@@ -305,14 +314,15 @@ class Pathfinding:
         
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: #Seperates first and second clicks
             pos = pygame.mouse.get_pos()
-            r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
-            node = self.grid[r][c]
-            if not self.start and node != self.end:
-                self.start = node
-                self.start.make_start()
-            elif not self.end and node != self.start:
-                self.end = node
-                self.end.make_end()
+            if pos[1] < HEIGHT:
+                r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
+                node = self.grid[r][c]
+                if not self.start and node != self.end:
+                    self.start = node
+                    self.start.make_start()
+                elif not self.end and node != self.start:
+                    self.end = node
+                    self.end.make_end()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE and self.start and self.end:
                 self.run_algorithm()
@@ -329,10 +339,11 @@ class Pathfinding:
 
         if self.start and self.end and pygame.mouse.get_pressed()[0]: #For drawing walls
             pos = pygame.mouse.get_pos()
-            r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
-            node = self.grid[r][c]
-            if node != self.start and node != self.end:
-                node.make_barrier()
+            if pos[1] < HEIGHT:
+                r, c = pos[1] // GRID_SIZE, pos[0] // GRID_SIZE
+                node = self.grid[r][c]
+                if node != self.start and node != self.end:
+                    node.make_barrier()
 
     def run(self):
         while self.running:
