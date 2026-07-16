@@ -3,7 +3,7 @@ To run program. Start the program. Click your first starting point and choose yo
 Once points are selected press space and watch.
 '''
 
-
+import heapq
 import pygame
 import collections
 
@@ -67,6 +67,7 @@ class Pathfinding:
         self.end: Node | None = None
         self.running = True
         self.clock = pygame.time.Clock()
+        self.algorithm = 'bfs'
 
     def make_grid(self): #Creates grid
         return [[Node(r, c) for c in range(ROWS)] for r in range(ROWS)] 
@@ -112,6 +113,44 @@ class Pathfinding:
                     self.draw()
         return False
 
+    def dijkstra(self):
+        if self.start is None or self.end is None:
+            return False
+
+        count = 0   
+        open_heap = [(0, count, self.start)]
+        g_score = {node: float('inf') for row in self.grid for node in row}
+        g_score[self.start] = 0
+        parent: dict[Node, Node | None] = {self.start: None}
+        visited = set()
+
+        while open_heap:
+            current_g, _, current = heapq.heappop(open_heap)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == self.end:
+                while current:
+                    current.make_path()
+                    current = parent.get(current)
+                    if current:
+                        self.draw()
+                self.start.make_start()
+                return True
+
+            for neighbor in current.neighbors:
+                tentative_g = g_score[current] + 1
+                if tentative_g < g_score[neighbor]:
+                    g_score[neighbor] = tentative_g
+                    parent[neighbor] = current
+                    count += 1
+                    heapq.heappush(open_heap, (tentative_g, count, neighbor))
+                    if neighbor != self.end:
+                        neighbor.make_open()
+            self.draw()
+        return False
+
     def refresh_all_neighbors(self):
         for row in self.grid:
             for node in row:
@@ -119,7 +158,10 @@ class Pathfinding:
 
     def run_algorithm(self):
         self.refresh_all_neighbors()
-        self.bfs()
+        if self.algorithm == 'bfs':
+            self.bfs()
+        elif self.algorithm == 'dijkstra':
+            self.dijkstra()
 
     def handle_event(self, event):
         if event.type == pygame.QUIT: 
@@ -138,8 +180,12 @@ class Pathfinding:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE and self.start and self.end:
                 self.run_algorithm()
-            if event.key == pygame.K_r: #Pressing r resets the board
-               self.reset()
+            if event.key == pygame.K_1:
+                self.algorithm = 'bfs'
+            if event.key == pygame.K_2:
+                self.algorithm = 'dijkstra'
+            if event.key == pygame.K_r:
+                self.reset()
 
         if self.start and self.end and pygame.mouse.get_pressed()[0]: #For drawing walls
             pos = pygame.mouse.get_pos()
