@@ -150,6 +150,49 @@ class Pathfinding:
                         neighbor.make_open()
             self.draw()
         return False
+    
+    def heuristic(self, a: Node, b: Node) -> int:
+        # Manhattan distance — admissible here since moves are only up/down/left/right at cost 1
+        return abs(a.row - b.row) + abs(a.col - b.col)
+
+    def astar(self):
+        if self.start is None or self.end is None:
+            return False
+
+        count = 0
+        open_heap = [(0, count, self.start)]
+        g_score = {node: float('inf') for row in self.grid for node in row}
+        g_score[self.start] = 0
+        parent: dict[Node, Node | None] = {self.start: None}
+        visited = set()
+
+        while open_heap:
+            _, _, current = heapq.heappop(open_heap)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == self.end:
+                while current:
+                    current.make_path()
+                    current = parent.get(current)
+                    if current:
+                        self.draw()
+                self.start.make_start()
+                return True
+
+            for neighbor in current.neighbors:
+                tentative_g = g_score[current] + 1
+                if tentative_g < g_score[neighbor]:
+                    g_score[neighbor] = tentative_g
+                    parent[neighbor] = current
+                    f_score = tentative_g + self.heuristic(neighbor, self.end)
+                    count += 1
+                    heapq.heappush(open_heap, (f_score, count, neighbor))
+                    if neighbor != self.end:
+                        neighbor.make_open()
+            self.draw()
+        return False
 
     def refresh_all_neighbors(self):
         for row in self.grid:
@@ -162,6 +205,8 @@ class Pathfinding:
             self.bfs()
         elif self.algorithm == 'dijkstra':
             self.dijkstra()
+        elif self.algorithm == 'astar':
+            self.astar()
 
     def handle_event(self, event):
         if event.type == pygame.QUIT: 
@@ -184,6 +229,8 @@ class Pathfinding:
                 self.algorithm = 'bfs'
             if event.key == pygame.K_2:
                 self.algorithm = 'dijkstra'
+            if event.key == pygame.K_3:
+                self.algorithm = 'astar'
             if event.key == pygame.K_r:
                 self.reset()
 
