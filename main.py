@@ -7,6 +7,7 @@ import heapq
 import pygame
 import collections
 import time
+import random
 
 
 WIDTH, HEIGHT = 800, 800 #Window size
@@ -103,6 +104,7 @@ class Pathfinding:
                 while current:
                     current.make_path()
                     current = parent.get(current)
+                    path_length += 1
                     if current:
                         self.draw()
                 self.start.make_start()
@@ -139,9 +141,11 @@ class Pathfinding:
             visited.add(current)
 
             if current == self.end:
+                path_length = 0
                 while current:
                     current.make_path()
                     current = parent.get(current)
+                    path_length += 1
                     if current:
                         self.draw()
                 self.start.make_start()
@@ -157,6 +161,7 @@ class Pathfinding:
                     if neighbor != self.end:
                         neighbor.make_open()
             self.draw()
+        self._last_run_stats = {'nodes_visited': len(visited), 'path_length': 0}
         return False
     
     def heuristic(self, a: Node, b: Node) -> int:
@@ -181,9 +186,11 @@ class Pathfinding:
             visited.add(current)
 
             if current == self.end:
+                path_length = 0
                 while current:
                     current.make_path()
                     current = parent.get(current)
+                    path_length += 1
                     if current:
                         self.draw()
                 self.start.make_start()
@@ -200,6 +207,7 @@ class Pathfinding:
                     if neighbor != self.end:
                         neighbor.make_open()
             self.draw()
+        self._last_run_stats = {'nodes_visited': len(visited), 'path_length': 0}
         return False
 
     def refresh_all_neighbors(self):
@@ -207,16 +215,63 @@ class Pathfinding:
             for node in row:
                 node.update_neighbors(self.grid)
 
+    def generate_maze(self):
+        # Start fully walled — every node is a barrier until Prim's carves it out
+        for row in self.grid:
+            for node in row:
+                node.make_barrier()
+
+        start_r, start_c = random.randrange(ROWS), random.randrange(ROWS)
+        origin = self.grid[start_r][start_c]
+        origin.reset()   # "reset" == open/white, carved into the maze
+
+        # Frontier = open cells adjacent to the maze that are still barriers themselves
+        frontier = []
+        self._add_frontier(origin, frontier)
+
+        while frontier:
+            cell = random.choice(frontier)
+            frontier.remove(cell)
+            if not cell.is_barrier():
+                continue   # already carved by a different frontier path, skip
+
+            # Connect this frontier cell back to a random already-open neighbor
+            open_neighbors = [n for n in self._raw_neighbors(cell) if not n.is_barrier()]
+            if open_neighbors:
+                cell.reset()
+                self._add_frontier(cell, frontier)
+
+            self.draw()   # optional — lets you watch the maze generate live
+
+        self.start = None
+        self.end = None
+
+    def _raw_neighbors(self, node: Node) -> list[Node]:
+        # Unlike update_neighbors(), this ignores barrier status — maze
+        # generation needs to see walled-off cells too, not just open paths
+        neighbors = []
+        for dr, dc in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            r, c = node.row + dr, node.col + dc
+            if 0 <= r < ROWS and 0 <= c < ROWS:
+                neighbors.append(self.grid[r][c])
+        return neighbors
+
+    def _add_frontier(self, node: Node, frontier: list[Node]):
+        for neighbor in self._raw_neighbors(node):
+            if neighbor.is_barrier() and neighbor not in frontier:
+                frontier.append(neighbor)
+
     def run_algorithm(self):
         self.refresh_all_neighbors()
 
         start_time = time.perf_counter()
+        found = False
         if self.algorithm == 'bfs':
-            self.bfs()
+            found = self.bfs()
         elif self.algorithm == 'dijkstra':
-            self.dijkstra()
+            found = self.dijkstra()
         elif self.algorithm == 'astar':
-            self.astar()
+            found = self.astar()
         else:
             found = False
         elapsed = time.perf_counter() - start_time
@@ -238,7 +293,8 @@ class Pathfinding:
             s = self.stats
             status = "found" if s['found'] else "no path"
             text = (f"{s['algorithm'].upper()}  |  {status}  |  "
-                    f"{s['time_ms']}ms  |  visited: {s['nodes_visited']}  |  path: {s['path_length']}")
+                    f"{s['time_ms']}ms  |  visited: {s['nodes_visited']}  |  path: {s['path_length']}"
+                    f"{self.algorithm.upper()}")
 
         rendered = self.font.render(text, True, BLACK)
         self.win.blit(rendered, (10, HEIGHT + 18))
@@ -266,6 +322,8 @@ class Pathfinding:
                 self.algorithm = 'dijkstra'
             if event.key == pygame.K_3:
                 self.algorithm = 'astar'
+            if event.key == pygame.K_m:
+                self.generate_maze()
             if event.key == pygame.K_r:
                 self.reset()
 
