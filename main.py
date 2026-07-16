@@ -6,9 +6,11 @@ Once points are selected press space and watch.
 import heapq
 import pygame
 import collections
+import time
 
 
 WIDTH, HEIGHT = 800, 800 #Window size
+STATS_HEIGHT = 60
 ROWS = 40
 GRID_SIZE = WIDTH // ROWS 
 WHITE, BLACK, RED, GREEN, BLUE, GREY = (255, 255, 255), (0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255), (200, 200, 200) #Sets color with RGB
@@ -61,7 +63,10 @@ class Node:
 
 class Pathfinding:
     def __init__(self):
-        self.win = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.win = pygame.display.set_mode((WIDTH, HEIGHT + STATS_HEIGHT))
+        pygame.font.init()
+        self.font = pygame.font.SysFont('Arial', 18)
+        self.stats: dict = {}
         self.grid = self.make_grid()
         self.start: Node | None = None
         self.end: Node | None = None
@@ -93,6 +98,7 @@ class Pathfinding:
         while queue:
             current = queue.popleft()
             if current == self.end:
+                path_length = 0
                 #Reconstruct path
                 while current:
                     current.make_path()
@@ -100,6 +106,7 @@ class Pathfinding:
                     if current:
                         self.draw()
                 self.start.make_start()
+                self._last_run_stats = {'nodes_visited': len(visited), 'path_length': path_length}
                 return True
                 
             for neighbor in current.neighbors:
@@ -111,6 +118,7 @@ class Pathfinding:
                     if neighbor != self.end:
                         neighbor.make_open()
                     self.draw()
+        self._last_run_stats = {'nodes_visited': len(visited), 'path_length': 0}
         return False
 
     def dijkstra(self):
@@ -201,12 +209,39 @@ class Pathfinding:
 
     def run_algorithm(self):
         self.refresh_all_neighbors()
+
+        start_time = time.perf_counter()
         if self.algorithm == 'bfs':
             self.bfs()
         elif self.algorithm == 'dijkstra':
             self.dijkstra()
         elif self.algorithm == 'astar':
             self.astar()
+        else:
+            found = False
+        elapsed = time.perf_counter() - start_time
+        self.stats = {
+            'algorithm': self.algorithm,
+            'found': found,
+            'time_ms': round(elapsed * 1000, 2),
+            **self._last_run_stats,
+        }
+
+    def draw_ui(self):
+        panel_rect = (0, HEIGHT, WIDTH, STATS_HEIGHT)
+        pygame.draw.rect(self.win, WHITE, panel_rect)
+        pygame.draw.line(self.win, BLACK, (0, HEIGHT), (WIDTH, HEIGHT), 2)
+
+        if not self.stats:
+            text = f"Algorithm: {self.algorithm.upper()}  |  Press SPACE to run, 1/2/3 to switch, R to reset"
+        else:
+            s = self.stats
+            status = "found" if s['found'] else "no path"
+            text = (f"{s['algorithm'].upper()}  |  {status}  |  "
+                    f"{s['time_ms']}ms  |  visited: {s['nodes_visited']}  |  path: {s['path_length']}")
+
+        rendered = self.font.render(text, True, BLACK)
+        self.win.blit(rendered, (10, HEIGHT + 18))
 
     def handle_event(self, event):
         if event.type == pygame.QUIT: 
@@ -245,6 +280,8 @@ class Pathfinding:
         while self.running:
             self.clock.tick(60)
             self.draw()
+            self.draw_ui()
+            pygame.display.update()
             for event in pygame.event.get():
                 self.handle_event(event)
         pygame.quit()
